@@ -1,0 +1,32 @@
+{
+  "name": "rayx-api",
+  "version": "1.0.0",
+  "description": "将java后端导出的接口配置文件生成接口方法，前端无需挨个手写接口请求代码，只要做简单配置，即可轻松调用方法完成接口请求。",
+  "main": "index.js",
+  "author": "wangxuezhi",
+  "bin": {
+    "rayx-api": "./bin/index.js"
+  },
+  "bugs": {
+    "url": "https://github.com/WangXueZhi/rayx-api/issues"
+  },
+  "bundleDependencies": false,
+  "dependencies": {
+    "chalk": "^2.4.1",
+    "commander": "^2.18.0",
+    "gulp": "^3.9.1",
+    "gulp-rename": "^1.2.3",
+    "gulp-replace": "^1.0.0",
+    "single-line-log": "^1.1.2"
+  },
+  "deprecated": false,
+  "homepage": "https://github.com/WangXueZhi/rayx-api#readme",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WangXueZhi/rayx-api.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
