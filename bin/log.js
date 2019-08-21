@@ -54,7 +54,7 @@ log.progressBar = function (description, bar_length) {
         }
 
         // 拼接最终文本
-        var cmdText = this.description + ': ' + (100 * percent).toFixed(2) + '% ' + cell + empty + ' ' + opts.completed + '/' + opts.total;
+        var cmdText = chalk.green(this.description) + ' ' + (100 * percent).toFixed(2) + '% ' + cell + empty + ' ' + opts.completed + '/' + opts.total;
 
         // 在单行输出文本
         slog(cmdText);

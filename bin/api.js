@@ -7,7 +7,7 @@ const replace = require('gulp-replace');
 const rename = require("gulp-rename");
 const log = require("./log.js");
 
-const progressBar = new log.progressBar("api生成中", 25);
+const progressBar = new log.progressBar("building", 25);
 
 /**
  * java返回类型枚举
