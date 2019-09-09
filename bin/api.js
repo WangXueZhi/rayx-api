@@ -181,13 +181,15 @@ api.buildOne = function (data) {
             // 处理复杂数据类型的参数
             const realType = data.parameters[param].type.split("[]")[0];
             // console.log(apiDatas.types)
-            let properties = apiDatas.types[realType].properties;
+            if (!!apiDatas.types[realType]) {
+                let properties = apiDatas.types[realType].properties;
 
-            for (let prop in properties) {
-                paramsArr.push({
-                    name: prop,
-                    info: properties[prop]
-                });
+                for (let prop in properties) {
+                    paramsArr.push({
+                        name: prop,
+                        info: properties[prop]
+                    });
+                }
             }
         }
     }

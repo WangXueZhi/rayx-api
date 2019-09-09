@@ -22,7 +22,7 @@ rayx-api
 生成api，覆盖原生成文件，除了fetch.js
 
 ```node
-rayx-api -O
+rayx-api -o
 ```
 
 生成适用于微信小程序的api
