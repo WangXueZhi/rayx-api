@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## [v1.0.4] 2019.9.9
+## [v1.0.5] 2019.9.9
 - 生成微信小程序接口中增加apiPackageName，方便开发者区分多种渠道接口
 ```node
 exports.xxx = function (options) {

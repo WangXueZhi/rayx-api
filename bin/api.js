@@ -267,7 +267,7 @@ api.buildOne = function (data) {
             .replace(/__url__/g, API_URL)
             .replace(/__method__/g, API_METHOD)
             .replace(/__headers__/g, API_HEADERS)
-            .replace(/__apiPackageName__/g, apiPackageName);
+            .replace(/__apiPackageName__/g, `"${apiPackageName}"`);
 
         // log.info("api名称: " + API_NAME)
         // log.info("api描述: " + API_dESCRIBE)
@@ -291,7 +291,7 @@ api.buildOne = function (data) {
             .pipe(replace('__url__', API_URL))
             .pipe(replace('__method__', API_METHOD))
             .pipe(replace('__headers__', API_HEADERS))
-            .pipe(replace('__apiPackageName__', apiPackageName))
+            .pipe(replace('__apiPackageName__', `"${apiPackageName}"`))
             .pipe(gulp.dest(apiPath))
             .on("end", () => {
                 // 读取目标文件内容
