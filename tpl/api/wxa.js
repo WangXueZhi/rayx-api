@@ -4,6 +4,7 @@ exports.__api_name__ = function (options) {
     method: __method__,
     url: __url__,
     data: options.data || {},
-    header: options.header || {}
+    header: options.header || {},
+    apiPackageName: __apiPackageName__
   })
 }
