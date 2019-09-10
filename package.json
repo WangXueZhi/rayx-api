@@ -1,6 +1,6 @@
 {
   "name": "rayx-api",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "将java后端导出的接口配置文件生成接口方法，前端无需挨个手写接口请求代码，只要做简单配置，即可轻松调用方法完成接口请求。",
   "main": "index.js",
   "author": "wangxuezhi",
