@@ -19,7 +19,7 @@ program
     .description('生成api接口文件')
     .version(pkg.version)
     .option('-v, -V', '版本号', function () {
-        console.log(pkg.version)
+        console.log(pkg.version);
     })
     .option("-o, -O", "覆盖")
     .option("--wxa", "小程序")
@@ -33,17 +33,19 @@ program
 
         const config = (typeof name == "object" && name) || (typeof dir == "object" && dir) || (typeof options == "object" && options) || {};
 
-        const isOverride = !!config.O;
-
-        if (fs.existsSync(apiJsonFilePath)) {
-            const apiJson = require(apiJsonFilePath);
-            if (!!config.wxa) {
-                api.buildWXA(apiDirPath, apiName, apiJson, isOverride);
+        // 如果不是查询版本号，就是生成api
+        if (!config.V) {
+            const isOverride = !!config.O;
+            if (fs.existsSync(apiJsonFilePath)) {
+                const apiJson = require(apiJsonFilePath);
+                if (!!config.wxa) {
+                    api.buildWXA(apiDirPath, apiName, apiJson, isOverride);
+                } else {
+                    api.build(apiDirPath, apiName, apiJson, isOverride);
+                }
             } else {
-                api.build(apiDirPath, apiName, apiJson, isOverride);
+                log.error(`${apiJsonFilePath} 文件不存在`);
             }
-        } else {
-            log.error(`${apiJsonFilePath} 文件不存在`);
         }
     });
 
