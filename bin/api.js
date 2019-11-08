@@ -172,7 +172,7 @@ api.buildOne = function (data) {
     let paramsArr = [];
     for (let param in data.parameters) {
         // 处理基本数据类型的参数
-        if (data.parameters[param].type.indexOf("java.lang.") == 0) {
+        if (data.parameters[param].type.indexOf("java.") == 0) {
             paramsArr.push({
                 name: param,
                 info: data.parameters[param]
