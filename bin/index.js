@@ -1,52 +1,37 @@
 #!/usr/bin/env node
 const pkg = require("../package.json");
 const cwdPath = process.cwd();
-const path = require('path');
 const fs = require("fs");
-var program = require('commander');
-const log = require("./log.js");
-const api = require("./api.js");
+const commander = require('commander');
 
 
-// program
-//     // 版本号
-//     .version(pkg.version)
-//     .option('-v', '版本号', function () {
-//         console.log(pkg.version)
-//     });
+commander.version(pkg.version).description('api代码生成工具')
 
-program
-    .description('生成api接口文件')
-    .version(pkg.version)
-    .option('-v, -V', '版本号', function () {
-        console.log(pkg.version);
-    })
-    .option("-o, -O", "覆盖")
-    .option("--wxa", "小程序")
-    .action(function (name, dir, options) {
-        // api源文件名
-        const apiName = typeof name == "string" ? name : "api";
-        // api源文件路径
-        const apiJsonFilePath = `${cwdPath}/${apiName}.json`;
-        // 生成api的目录路径，默认./src
-        const apiDirPath = dir && typeof dir == "string" ? `${path.resolve(cwdPath, dir)}/${apiName}/` : `${cwdPath}/src/${apiName}/`;
+// api操作
+commander
+  .description('api代码生成工具')
+  .option("--source <source>", "数据源")
+  .option("--s <source>", "数据源")
+  .option("--target <target>", "生成目标目录")
+  .option("--t <target>", "生成目标目录")
+  .option("--wxa", "微信小程序")
+  .action(function (cmd) {
+    if(!cmd.target){
+      console.error(chalk.red('必须指定生成代码的目标目录'));
+      return
+    }
+    // api源文件名
+    const apiName = cmd.source || "api";
+    // api源文件路径
+    const apiJsonFilePath = `${cwdPath}/${apiName}.json`;
+    // 生成api的目录路径
+    const apiDirPath = `${cwdPath}/${cmd.target}/`
+    if (fs.existsSync(apiJsonFilePath)) {
+      const apiJson = require(apiJsonFilePath);
+      apiBuilder(apiDirPath, apiName, apiJson, !!cmd.wxa);
+    } else {
+      console.error(chalk.red(`${apiJsonFilePath} 文件不存在`));
+    }
+  });
 
-        const config = (typeof name == "object" && name) || (typeof dir == "object" && dir) || (typeof options == "object" && options) || {};
-
-        // 如果不是查询版本号，就是生成api
-        if (!config.V) {
-            const isOverride = !!config.O;
-            if (fs.existsSync(apiJsonFilePath)) {
-                const apiJson = require(apiJsonFilePath);
-                if (!!config.wxa) {
-                    api.buildWXA(apiDirPath, apiName, apiJson, isOverride);
-                } else {
-                    api.build(apiDirPath, apiName, apiJson, isOverride);
-                }
-            } else {
-                log.error(`${apiJsonFilePath} 文件不存在`);
-            }
-        }
-    });
-
-program.parse(process.argv)
+commander.parse(process.argv)
