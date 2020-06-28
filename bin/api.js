@@ -42,7 +42,7 @@ const __KEYWORDS__ = ["abstract", "arguments", "boolean", "break", "byte", "case
  */
 const __REQUIRE_HEAD__ = {
     'web': "import fetch from '@/utils/fetch'\n",
-    'wxa': 'const network = getApp().globalData.network'
+    'wxa': 'const network = getApp().globalData.network\n'
 }
 
 /**

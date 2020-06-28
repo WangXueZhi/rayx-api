@@ -15,6 +15,37 @@ npm install rayx-api -g
 
 ### example
 
+命令
 ```
 rayx-api --source=api --target=src/api
+```
+
+生成
+```javascript
+// 默认的requireHead, 可在项目中增加配置文件自定义
+import fetch from '@/utils/fetch' 
+
+// 获取用户信息
+export function info_get(options) {
+  return fetch({
+    url: 'user/info',
+    method: 'get',
+    headers: {'Content-Type': 'application/json', ...(options && options.headers ? options.headers : {})},
+    data: (options && options.data) || {}
+  })
+}
+```
+
+### 配置文件
+在项目根目录下增加文件rayx.config.json，增加如下配置
+
+```json
+{
+    "api": {
+        "requireHead": {
+            "web": "import { fetch } from '@/utils/http'\n", // 浏览器端使用
+            "wxa": "const network = getApp().globalData.network\n" // 微信小程序端使用
+        }
+    }
+}
 ```
