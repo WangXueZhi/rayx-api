@@ -1,5 +1,5 @@
 # rayx-api
-以swagger导出的json文件作为数据源，自动化生成接口调用代码，支持swagger2和swagger3
+以swagger导出的json文件作为数据源，自动化生成接口调用代码，支持swagger2和swagger3的数据源
 
 ### 安装
 ```

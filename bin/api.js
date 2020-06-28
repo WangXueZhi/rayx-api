@@ -20,10 +20,40 @@ const TPL_WXA_PATH = path.resolve(__dirname, "../tpl/wxa.js");
 /**
  * 解析模板内容
  */
-let tplFileContent = {
+const __TPL_FILE_CONTENT__ = {
     'web': TPL_API_PATH,
     'wxa': TPL_WXA_PATH
 }
+
+/**
+ * js关键字
+ */
+const __KEYWORDS__ = ["abstract", "arguments", "boolean", "break", "byte", "case", "catch", "char",
+  "class", "const", "continue", "debugger", "default", "delete", "do", "double", "else", "enum",
+  "eval", "export", "extends", "false", "final", "finally", "float", "for", "function", "goto",
+  "if", "implements", "import", "in", "instanceof", "int", "interface", "let", "long", "native",
+  "new", "null", "package", "private", "protected", "public", "return", "short", "static", "super",
+  "switch", "synchronized", "this", "throw", "throws", "transient", "true", "try", "typeof", "var",
+  "void", "volatile", "while", "with", "yield"
+]
+
+/**
+ * 文件前置代码枚举
+ */
+const __REQUIRE_HEAD__ = {
+    'web': "import fetch from '@/utils/fetch'\n",
+    'wxa': 'const network = getApp().globalData.network'
+}
+
+/**
+ * api类型
+ */
+let apiType = 'web';
+
+/**
+ * 文件前置代码，一般是导入依赖
+ */
+let _requireHead = __REQUIRE_HEAD__[apiType]
 
 /**
  * api列表索引
@@ -34,11 +64,6 @@ let apisIndex = 0;
  * api列表
  */
 let apisArr = [];
-
-/**
- * api类型
- */
-let apiType = 'web';
 
 /**
  * api数据
@@ -69,23 +94,6 @@ let apiPackageName = "api";
  * swagger版本
  */
 let swaggerVersion = ""
-
-/**
- * js关键字
- */
-let keywords = ["abstract", "arguments", "boolean", "break", "byte", "case", "catch", "char",
-  "class", "const", "continue", "debugger", "default", "delete", "do", "double", "else", "enum",
-  "eval", "export", "extends", "false", "final", "finally", "float", "for", "function", "goto",
-  "if", "implements", "import", "in", "instanceof", "int", "interface", "let", "long", "native",
-  "new", "null", "package", "private", "protected", "public", "return", "short", "static", "super",
-  "switch", "synchronized", "this", "throw", "throws", "transient", "true", "try", "typeof", "var",
-  "void", "volatile", "while", "with", "yield"
-]
-
-/**
- * 文件前置代码，一般是导入依赖
- */
-let _requireHead = "import fetch from '@/utils/fetch'\n"
 
 /**
  * 清空
@@ -184,9 +192,9 @@ const builder = function (dir, apiName, data, isWxa) {
 
   // 设置_requireHead
   if (fs.existsSync(`${cwdPath}/rayx.config.json`)) {
-    const apiConfig = require(`${cwdPath}/rayx.config.json`)
-    if (apiConfig.api && apiConfig.api.requireHead) {
-      _requireHead = apiConfig.api.requireHead
+    const apiConfig = require(`${cwdPath}/rayx.config.json`).api
+    if (apiConfig.requireHead && apiConfig.requireHead[apiType]) {
+      _requireHead = apiConfig.requireHead[apiType]
     }
   }
 
@@ -229,7 +237,7 @@ const buildOne = function (data) {
   apiFunName = apiFunName.indexOf('{') >= 0 ? apiFunName.slice(1, apiFunName.length - 1) : apiFunName
 
   const API_METHOD = `'${data.method || 'post'}'`;
-  const API_NAME = (keywords.includes(apiFunName) ? `_${apiFunName}` : apiFunName) + `_${data.method || 'post'}`;
+  const API_NAME = (__KEYWORDS__.includes(apiFunName) ? `_${apiFunName}` : apiFunName) + `_${data.method || 'post'}`;
   const api_describe = data.title
   const API_dESCRIBE = api_describe.split('\n').map(item => '// ' + item.trim()).join('\n');
   const API_URL = `'${util.cleanEmptyInArray(data.path.split("/")).join("/")}'`;
@@ -253,7 +261,7 @@ const buildOne = function (data) {
     }
 
     // 替换模板内容
-    let newTplFileContent = fs.readFileSync(tplFileContent[apiType], 'utf-8')
+    let newTplFileContent = fs.readFileSync(__TPL_FILE_CONTENT__[apiType], 'utf-8')
       .replace(/__api_annotation__/g, API_dESCRIBE)
       .replace(/__api_name__/g, API_NAME)
       .replace(/__url__/g, API_URL)
@@ -273,7 +281,7 @@ const buildOne = function (data) {
     buildNext();
   } else {
     // 如果目标文件不存在， 创建目标文件
-    gulp.src(tplApiFilePath)
+    gulp.src(__TPL_FILE_CONTENT__[apiType])
       .pipe(rename(apiFileName))
       .pipe(replace('__api_annotation__', API_dESCRIBE))
       .pipe(replace('__api_name__', API_NAME))
