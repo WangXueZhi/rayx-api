@@ -122,10 +122,15 @@ const checkIsCreate = function (pathArr, path, method) {
 const transformDataForSwagger2 = function(data){
   let apisArr = []
   for (const path in data.paths) {
+    if(path==="/"){
+      continue
+    }
     const item = data.paths[path]
     for (const method in item) {
       item[method].title = item[method].summary
-      item[method]['Content-Type'] = item[method].consumes[0]
+      if(item[method].consumes){
+        item[method]['Content-Type'] = item[method].consumes[0]
+      }
       apisArr.push({
         path,
         method,
