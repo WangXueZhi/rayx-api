@@ -246,7 +246,7 @@ const buildOne = function (data) {
   const api_describe = data.title
   const API_dESCRIBE = api_describe.split('\n').map(item => '// ' + item.trim()).join('\n');
   const API_URL = `'${util.cleanEmptyInArray(data.path.split("/")).join("/")}'`;
-  const API_HEADER = `'Content-Type': '${data['Content-Type']}'`
+  const API_HEADER = data['Content-Type'] ? `{'Content-Type': '${data['Content-Type']}', ...(options && options.headers ? options.headers : {})}` : 'options && options.headers ? options.headers : {}'
 
   // 命名接口文件名称
   let apiFileName = urlArr[urlArr.length - 2] || "other";
