@@ -1,6 +1,6 @@
 {
   "name": "rayx-api",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "以swagger导出的json文件作为数据源，自动化生成接口调用代码",
   "main": "index.js",
   "author": "wangxuezhi",
