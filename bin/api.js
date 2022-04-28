@@ -1,14 +1,14 @@
 const util = require("./util.js");
 const fs = require("fs");
-const path = require('path');
+const path = require("path");
 const gulp = require("gulp");
-const replace = require('gulp-replace');
+const replace = require("gulp-replace");
 const rename = require("gulp-rename");
-const prependFile = require('prepend-file');
-const ProgressBar = require('progress')
-const chalk = require('chalk')
-const slog = require('single-line-log').stdout
-const ora = require('ora')
+const prependFile = require("prepend-file");
+const ProgressBar = require("progress");
+const chalk = require("chalk");
+const slog = require("single-line-log").stdout;
+const ora = require("ora");
 const cwdPath = process.cwd();
 
 /**
@@ -21,39 +21,101 @@ const TPL_WXA_PATH = path.resolve(__dirname, "../tpl/wxa.js");
  * 解析模板内容
  */
 const __TPL_FILE_CONTENT__ = {
-    'web': TPL_API_PATH,
-    'wxa': TPL_WXA_PATH
-}
+  web: TPL_API_PATH,
+  wxa: TPL_WXA_PATH,
+};
 
 /**
  * js关键字
  */
-const __KEYWORDS__ = ["abstract", "arguments", "boolean", "break", "byte", "case", "catch", "char",
-  "class", "const", "continue", "debugger", "default", "delete", "do", "double", "else", "enum",
-  "eval", "export", "extends", "false", "final", "finally", "float", "for", "function", "goto",
-  "if", "implements", "import", "in", "instanceof", "int", "interface", "let", "long", "native",
-  "new", "null", "package", "private", "protected", "public", "return", "short", "static", "super",
-  "switch", "synchronized", "this", "throw", "throws", "transient", "true", "try", "typeof", "var",
-  "void", "volatile", "while", "with", "yield"
-]
+const __KEYWORDS__ = [
+  "abstract",
+  "arguments",
+  "boolean",
+  "break",
+  "byte",
+  "case",
+  "catch",
+  "char",
+  "class",
+  "const",
+  "continue",
+  "debugger",
+  "default",
+  "delete",
+  "do",
+  "double",
+  "else",
+  "enum",
+  "eval",
+  "export",
+  "extends",
+  "false",
+  "final",
+  "finally",
+  "float",
+  "for",
+  "function",
+  "goto",
+  "if",
+  "implements",
+  "import",
+  "in",
+  "instanceof",
+  "int",
+  "interface",
+  "let",
+  "long",
+  "native",
+  "new",
+  "null",
+  "package",
+  "private",
+  "protected",
+  "public",
+  "return",
+  "short",
+  "static",
+  "super",
+  "switch",
+  "synchronized",
+  "this",
+  "throw",
+  "throws",
+  "transient",
+  "true",
+  "try",
+  "typeof",
+  "var",
+  "void",
+  "volatile",
+  "while",
+  "with",
+  "yield",
+];
 
 /**
  * 文件前置代码枚举
  */
 const __REQUIRE_HEAD__ = {
-    'web': "import fetch from '@/utils/fetch'\n",
-    'wxa': 'const network = getApp().globalData.network\n'
-}
+  web: "import fetch from '@/utils/fetch'\n",
+  wxa: "const network = getApp().globalData.network\n",
+};
+
+/**
+ * 环境配置
+ */
+const envConfigMap = {};
 
 /**
  * api类型
  */
-let apiType = 'web';
+let apiType = "web";
 
 /**
  * 文件前置代码，一般是导入依赖
  */
-let _requireHead = __REQUIRE_HEAD__[apiType]
+let _requireHead = __REQUIRE_HEAD__[apiType];
 
 /**
  * api列表索引
@@ -73,7 +135,7 @@ let apiDatas = [];
 /**
  * 已经生成完毕的api，做校验使用
  */
-let isCreatedApi = []
+let isCreatedApi = [];
 
 /**
  * 创建api文件的目标目录
@@ -83,7 +145,7 @@ let buildPath = "";
 /**
  * 进度条
  */
-let bar = ''
+let bar = "";
 
 /**
  * api包名称
@@ -93,7 +155,7 @@ let apiPackageName = "api";
 /**
  * swagger版本
  */
-let swaggerVersion = ""
+let swaggerVersion = "";
 
 /**
  * 清空
@@ -102,7 +164,7 @@ let swaggerVersion = ""
 const clean = function (dir) {
   util.rmdirSync(dir);
   fs.mkdirSync(dir);
-}
+};
 
 /**
  * 检查当前api是否已被生成
@@ -111,218 +173,251 @@ const clean = function (dir) {
  * @param { String } method 接口方法
  */
 const checkIsCreate = function (pathArr, path, method) {
-  return pathArr.includes(path + '_' + method)
-}
+  return pathArr.includes(path + "_" + method);
+};
 
 /**
  * 转换swagger2数据
- * @param { Object } data 
+ * @param { Object } data
  * @returns { Object } 转换后的数据
  */
-const transformDataForSwagger2 = function(data){
-  let apisArr = []
+const transformDataForSwagger2 = function (data) {
+  let apisArr = [];
   for (const path in data.paths) {
-    if(path==="/"){
-      continue
+    if (path === "/") {
+      continue;
     }
-    const item = data.paths[path]
+    const item = data.paths[path];
     for (const method in item) {
-      item[method].title = item[method].summary
-      if(item[method].consumes){
-        item[method]['Content-Type'] = item[method].consumes[0]
+      item[method].title = item[method].summary;
+      if (item[method].consumes) {
+        item[method]["Content-Type"] = item[method].consumes[0];
       }
       apisArr.push({
         path,
         method,
-        ...item[method]
-      })
+        ...item[method],
+      });
     }
   }
-  return apisArr
-}
+  return apisArr;
+};
 
 /**
  * 转换swagger3数据
- * @param { Object } data 
+ * @param { Object } data
  * @returns { Object } 转换后的数据
  */
-const transformDataForSwagger3 = function(data){
-  let apisArr = []
-  data.forEach(item => {
-    if(Array.isArray(item.list)){
-      item.list.forEach(api => {
+const transformDataForSwagger3 = function (data) {
+  let apisArr = [];
+  data.forEach((item) => {
+    if (Array.isArray(item.list)) {
+      item.list.forEach((api) => {
         // 提取header中的Content-Type
-        if(Array.isArray(api.req_headers)){
-          api.req_headers.forEach(header => {
-            if(header.name === 'Content-Type'){
-              api['Content-Type'] = header.value
+        if (Array.isArray(api.req_headers)) {
+          api.req_headers.forEach((header) => {
+            if (header.name === "Content-Type") {
+              api["Content-Type"] = header.value;
             }
-          })
+          });
         }
-      })
+      });
     }
-    apisArr.push(...item.list)
-  })
-  return apisArr
-}
+    apisArr.push(...item.list);
+  });
+  return apisArr;
+};
 
 /**
  * 根据swagger版本转换数据
- * @param { Object } data 
+ * @param { Object } data
  * @returns { Object } 转换后的数据
  */
 const transformDataBySwaggerVersion = function (data) {
-  if (swaggerVersion === '2.0') {
+  if (swaggerVersion === "2.0") {
     // swagger2
     // 转换对象数据为数组数据
-    return transformDataForSwagger2(data)
+    return transformDataForSwagger2(data);
   }
   // swagger3
-  return transformDataForSwagger3(data)
-}
+  return transformDataForSwagger3(data);
+};
 
 /**
  * 构建api
  * @param {String} dir 创建目录路径 /src/api/
- * @param {String} apiName api源目录文件名 api
+ * @param {String} apiName api源文件名 api
  * @param {Object} data api数据 json
- * @param {Boolean} isWxa 是否微信小程序 false
+ * @param {Array} envTypes 生成代码环境类型 []
  */
-const builder = function (dir, apiName, data, isWxa) {
+const builder = function (dir, apiName, data, envTypes) {
   apiDatas = data; // 缓存到全局
   buildPath = dir;
   apiPackageName = apiName;
-  swaggerVersion = data.swagger
-  apiType = isWxa ? 'wxa' : 'web'
+  swaggerVersion = data.swagger;
+  // apiType = isWxa ? 'wxa' : 'web'
 
   // 设置_requireHead
-  if (fs.existsSync(`${cwdPath}/rayx.config.json`)) {
-    const apiConfig = require(`${cwdPath}/rayx.config.json`).api
-    if (apiConfig.requireHead && apiConfig.requireHead[apiType]) {
-      _requireHead = apiConfig.requireHead[apiType]
-    }
+  if (fs.existsSync(`${cwdPath}/api.config.json`)) {
+    const apiConfig = require(`${cwdPath}/api.config.json`);
+    envTypes.forEach((env) => {
+      if (apiConfig[env]) {
+        if (apiConfig[env].tplPath) {
+          console.log(chalk.red(`\n  环境 ${env} 缺少 tplPath 配置`));
+        } else if (apiConfig[env].tplPath) {
+          console.log(chalk.red(`\n  环境 ${env} 缺少 targetPath 配置`));
+        } else {
+          envConfigMap[env] = apiConfig[env];
+          // 先清空目录
+          clean(`${cwdPath}/${envConfigMap[env]}/${apiName}`);
+        }
+      } else {
+        console.log(chalk.red(`\n  环境 ${env} 配置不存在`));
+      }
+    });
+    // if (apiConfig.requireHead && apiConfig.requireHead[apiType]) {
+    //   _requireHead = apiConfig.requireHead[apiType]
+    // }
   }
 
-  // 先清空
-  clean(buildPath)
-
   // 根据swagger版本转换数据
-  apisArr = transformDataBySwaggerVersion(data)
+  apisArr = transformDataBySwaggerVersion(data);
 
+  for (let env in envConfigMap) {
+    buildForEnv(envConfigMap[env])
+  }
+};
+
+const buildForEnv = function (envConfig) {
   // 添加进度条
-  let len = apisArr.length
-  bar = new ProgressBar('  working [:bar] :current/:total', {
-    complete: '=',
-    incomplete: ' ',
+  let len = apisArr.length;
+  bar = new ProgressBar("  working [:bar] :current/:total", {
+    complete: "=",
+    incomplete: " ",
     width: 20,
-    total: len
-  })
-  buildOne(apisArr[apisIndex]);
-}
+    total: len,
+  });
+  buildOne(apisArr[apisIndex], envConfig);
+};
 
 /**
  * 生成指定接口api
  * @param {Object} data
  */
-const buildOne = function (data) {
+const buildOne = function (data, envConfig) {
   // 处理url数据
   // 待生成的接口
   let urlArr = util.cleanEmptyInArray(data.path.split("/"));
   // 文件生成目录
-  let apiPath = buildPath;
+  let apiTargetPath = `${cwdPath}/${envConfig.targetPath}/${apiName}`;
 
   // 拼接出文件路径
   for (let i = 0; i < urlArr.length - 2; i++) {
-    apiPath += `${urlArr[i]}/`;
+    apiTargetPath += `${urlArr[i]}/`;
   }
 
   // 创建api方法名
   let apiFunName = urlArr[urlArr.length - 1];
   // 判断是否是rest风格接口
-  apiFunName = apiFunName.indexOf('{') >= 0 ? apiFunName.slice(1, apiFunName.length - 1) : apiFunName
+  apiFunName =
+    apiFunName.indexOf("{") >= 0
+      ? apiFunName.slice(1, apiFunName.length - 1)
+      : apiFunName;
 
-  const API_METHOD = `'${data.method || 'post'}'`;
-  const API_NAME = (__KEYWORDS__.includes(apiFunName) ? `_${apiFunName}` : apiFunName) + `_${data.method || 'post'}`;
-  const api_describe = data.title
-  const API_dESCRIBE = api_describe.split('\n').map(item => '// ' + item.trim()).join('\n');
+  const API_METHOD = `'${data.method || "post"}'`;
+  const API_NAME =
+    (__KEYWORDS__.includes(apiFunName) ? `_${apiFunName}` : apiFunName) +
+    `_${data.method || "post"}`;
+  const api_describe = data.title;
+  const API_dESCRIBE = api_describe
+    .split("\n")
+    .map((item) => "// " + item.trim())
+    .join("\n");
   const API_URL = `'${util.cleanEmptyInArray(data.path.split("/")).join("/")}'`;
-  const API_HEADER = data['Content-Type'] ? `{ 'Content-Type': '${data['Content-Type']}', ...(options && options.headers ? options.headers : {}) }` : 'options && options.headers ? options.headers : {}'
+  const API_HEADER = data["Content-Type"]
+    ? `{ 'Content-Type': '${data["Content-Type"]}', ...(options && options.headers ? options.headers : {}) }`
+    : "options && options.headers ? options.headers : {}";
 
   // 命名接口文件名称
   let apiFileName = urlArr[urlArr.length - 2] || "other";
-  apiFileName = apiFileName.indexOf('{') >= 0 ? apiFileName.slice(1, apiFileName.length - 1) : apiFileName
-  apiFileName += ".js"
+  apiFileName =
+    apiFileName.indexOf("{") >= 0
+      ? apiFileName.slice(1, apiFileName.length - 1)
+      : apiFileName;
+  apiFileName += ".js";
   // 目标文件路径
-  let targetApiFilePath = `${apiPath}${apiFileName}`;
+  let targetApiFilePath = `${apiTargetPath}${apiFileName}`;
   // 模板文件路径
   let tplApiFilePath = `${TPL_API_PATH}`;
   if (fs.existsSync(targetApiFilePath)) {
     // 检查是否已经存在该接口
     if (checkIsCreate(isCreatedApi, API_URL, API_METHOD)) {
-      console.log(chalk.red(`\n  ${API_URL}已存在...继续创建下一个api`))
-      bar.tick(1)
-      buildNext()
-      return
+      console.log(chalk.red(`\n  ${API_URL}已存在...继续创建下一个api`));
+      bar.tick(1);
+      buildNext();
+      return;
     }
 
     // 替换模板内容
-    let newTplFileContent = fs.readFileSync(__TPL_FILE_CONTENT__[apiType], 'utf-8')
-      .replace(/__api_annotation__/g, API_dESCRIBE)
-      .replace(/__api_name__/g, API_NAME)
-      .replace(/__url__/g, API_URL)
-      .replace(/__method__/g, API_METHOD)
-      .replace(/__headers__/g, API_HEADER)
+    let newTplFileContent = fs
+      .readFileSync(__TPL_FILE_CONTENT__[apiType], "utf-8")
+      .replace(/__API_ANNOTATION__/g, API_dESCRIBE)
+      .replace(/_API_NAME_/g, API_NAME)
+      .replace(/_API_PATH_/g, API_URL)
+      .replace(/_API_METHOD_/g, API_METHOD)
+      .replace(/_API_HEADERS_/g, API_HEADER);
 
     // 写入新内容
     try {
-      fs.appendFileSync(targetApiFilePath, `\n${newTplFileContent}`, 'utf8');
-      isCreatedApi.push(API_URL + '_' + API_METHOD)
-      bar.tick(1)
+      fs.appendFileSync(targetApiFilePath, `\n${newTplFileContent}`, "utf8");
+      isCreatedApi.push(API_URL + "_" + API_METHOD);
+      bar.tick(1);
     } catch (error) {
       console.error(chalk.red(`api ${API_NAME} 创建失败，原因：${error}`));
-      return
+      return;
     }
 
     buildNext();
   } else {
     // 如果目标文件不存在， 创建目标文件
-    gulp.src(__TPL_FILE_CONTENT__[apiType])
+    gulp
+      .src(__TPL_FILE_CONTENT__[apiType])
       .pipe(rename(apiFileName))
-      .pipe(replace('__api_annotation__', API_dESCRIBE))
-      .pipe(replace('__api_name__', API_NAME))
-      .pipe(replace('__url__', API_URL))
-      .pipe(replace('__method__', API_METHOD))
-      .pipe(replace('__headers__', API_HEADER))
-      .pipe(gulp.dest(apiPath))
+      .pipe(replace("__API_ANNOTATION__", API_dESCRIBE))
+      .pipe(replace("_API_NAME_", API_NAME))
+      .pipe(replace("_API_PATH_", API_URL))
+      .pipe(replace("_API_METHOD_", API_METHOD))
+      .pipe(replace("_API_HEADERS_", API_HEADER))
+      .pipe(gulp.dest(apiTargetPath))
       .on("end", () => {
-        isCreatedApi.push(API_URL + '_' + API_METHOD)
+        isCreatedApi.push(API_URL + "_" + API_METHOD);
         prependFile(targetApiFilePath, _requireHead, function (err) {
           if (err) {
             // Error
           }
           // Success
-          bar.tick(1)
+          bar.tick(1);
           buildNext();
-        })
+        });
       });
   }
-}
+};
 
 /**
  * 构建下一个api
  */
 const buildNext = function () {
   if (bar.complete) {
-    let cmdText = chalk.green(`  ${apiPackageName}生成完毕`)
-    slog(cmdText)
-    return
+    let cmdText = chalk.green(`  ${apiPackageName}生成完毕`);
+    slog(cmdText);
+    return;
   }
   apisIndex++;
   if (apisArr[apisIndex]) {
     buildOne(apisArr[apisIndex]);
   }
-}
+};
 
 module.exports = {
-  apiBuilder: builder
-}
+  apiBuilder: builder,
+};
