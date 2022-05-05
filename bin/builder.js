@@ -242,25 +242,7 @@ class Builder {
   checkIsCreate(pathArr, path, method) {
     return pathArr.includes(path + "_" + method);
   }
-
-  //"req_body_form": [
-  // {
-  //     "required": "0",
-  //     "_id": "626124f95bc2c60019337b0e",
-  //     "type": "text",
-  //     "desc": "主键id",
-  //     "example": "0",
-  //     "name": "id"
-  //   },
-  //   "req_query": [
-  //     {
-  //       "required": "0",
-  //       "_id": "6267594b5bc2c60019337e17",
-  //       "desc": "",
-  //       "example": "0",
-  //       "name": "collectibleId"
-  //     }
-  //   ],
+  
   /**
    * 解析参数成注释字符串
    * @param {string} method 方法名
