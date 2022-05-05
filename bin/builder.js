@@ -79,7 +79,7 @@ class Builder {
     this.config = options.config;
     this.apisArr = options.data;
     this.apiName = options.apiName;
-    this.type = options.type
+    this.type = options.type;
     this.bar = new ProgressBar(`${options.type} [:bar] :current/:total`, {
       complete: "=",
       incomplete: " ",
@@ -99,7 +99,6 @@ class Builder {
    */
   buildOne(data) {
     // 处理url数据
-    console.log(data)
     // 待生成的接口
     let urlArr = util.cleanEmptyInArray(data.path.split("/"));
 
@@ -130,9 +129,10 @@ class Builder {
       .map((item) => item.trim())
       .join("\n");
     const API_URL = `${util.cleanEmptyInArray(data.path.split("/")).join("/")}`;
-    const API_HEADER = data["Content-Type"]
-      ? `{ 'Content-Type': '${data["Content-Type"]}', ...(options && options.headers ? options.headers : {}) }`
-      : "options && options.headers ? options.headers : {}";
+    // const API_HEADER = data["Content-Type"]
+    //   ? `{ 'Content-Type': '${data["Content-Type"]}', ...(options && options.headers ? options.headers : {}) }`
+    //   : "options && options.headers ? options.headers : {}";
+    const API_HEADER = "options && options.headers ? options.headers : {}";
 
     // 命名接口文件名称
     let apiFileName = urlArr[urlArr.length - 2] || "other";
@@ -142,9 +142,13 @@ class Builder {
         : apiFileName;
     apiFileName += ".js";
 
+    // 处理方法注释
+    const paramString = this.parseParamToAnnotation(API_METHOD, data);
+    const AnnotationString = `/**\n* ${API_dESCRIBE}\n${paramString}*/`;
+
     // 目标文件路径
     let targetApiFilePath = `${apiTargetPath}/${apiFileName}`;
-    
+
     if (fs.existsSync(targetApiFilePath)) {
       // 检查是否已经存在该接口
       if (this.checkIsCreate(this.config.createdApi, API_URL, API_METHOD)) {
@@ -156,7 +160,7 @@ class Builder {
 
       // 替换模板内容
       let newTplFileContent = this.config.tplContent
-        .replace(/__API_ANNOTATION__/g, API_dESCRIBE)
+        .replace(/__API_ANNOTATION__/g, AnnotationString)
         .replace(/_API_NAME_/g, API_NAME)
         .replace(/_API_PATH_/g, API_URL)
         .replace(/_API_METHOD_/g, API_METHOD)
@@ -183,7 +187,7 @@ class Builder {
       gulp
         .src(this.config.tplPath)
         .pipe(rename(apiFileName))
-        .pipe(replace("__API_ANNOTATION__", API_dESCRIBE))
+        .pipe(replace("__API_ANNOTATION__", AnnotationString))
         .pipe(replace("_API_NAME_", API_NAME))
         .pipe(replace("_API_PATH_", API_URL))
         .pipe(replace("_API_METHOD_", API_METHOD))
@@ -198,14 +202,18 @@ class Builder {
         .pipe(gulp.dest(apiTargetPath))
         .on("end", () => {
           this.config.createdApi.push(API_URL + "_" + API_METHOD);
-          prependFile(targetApiFilePath, this.config.requireHead || '', (err) => {
-            if (err) {
-              // Error
+          prependFile(
+            targetApiFilePath,
+            this.config.requireHead || "",
+            (err) => {
+              if (err) {
+                // Error
+              }
+              // Success
+              this.bar.tick(1);
+              this.buildNext();
             }
-            // Success
-            this.bar.tick(1);
-            this.buildNext();
-          });
+          );
         });
     }
   }
@@ -215,8 +223,8 @@ class Builder {
    */
   buildNext() {
     if (this.bar.complete) {
-    //   let cmdText = chalk.green(`${this.apiName} 生成完毕\n`);
-    //   console.log(cmdText);
+      //   let cmdText = chalk.green(`${this.apiName} 生成完毕\n`);
+      //   console.log(cmdText);
       return;
     }
     this.apiIndex++;
@@ -233,6 +241,46 @@ class Builder {
    */
   checkIsCreate(pathArr, path, method) {
     return pathArr.includes(path + "_" + method);
+  }
+
+  //"req_body_form": [
+  // {
+  //     "required": "0",
+  //     "_id": "626124f95bc2c60019337b0e",
+  //     "type": "text",
+  //     "desc": "主键id",
+  //     "example": "0",
+  //     "name": "id"
+  //   },
+  //   "req_query": [
+  //     {
+  //       "required": "0",
+  //       "_id": "6267594b5bc2c60019337e17",
+  //       "desc": "",
+  //       "example": "0",
+  //       "name": "collectibleId"
+  //     }
+  //   ],
+  /**
+   * 解析参数成注释字符串
+   * @param {string} method 方法名
+   * @param {object} data 接口数据
+   */
+  parseParamToAnnotation(method, data) {
+    let paramList = [];
+    let paramString = "";
+    if (method.toUpperCase === "GET") {
+      paramList = data.req_query;
+    } else {
+      paramList = data.req_body_form;
+    }
+    if (paramList.length > 0) {
+      paramString += `* @property {Object} options.data 接口参数\n`;
+    }
+    paramList.forEach((param) => {
+      paramString += `* @property {${param.type}} options.data.${param.name} ${param.desc}\n`;
+    });
+    return paramString;
   }
 }
 
