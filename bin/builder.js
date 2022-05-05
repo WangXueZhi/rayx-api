@@ -120,6 +120,7 @@ class Builder {
         : apiFunName;
 
     const API_METHOD = `${data.method || "post"}`;
+    const API_DATA_TYPE = API_METHOD.toUpperCase() === "GET" ? "params" : "data";
     const API_NAME =
       (__KEYWORDS__.includes(apiFunName) ? `_${apiFunName}` : apiFunName) +
       `_${data.method || "post"}`;
@@ -165,10 +166,7 @@ class Builder {
         .replace(/_API_PATH_/g, API_URL)
         .replace(/_API_METHOD_/g, API_METHOD)
         .replace(/_API_PROJECT_/g, this.apiName)
-        .replace(
-          /_API_DATA_/g,
-          API_METHOD.toUpperCase === "GET" ? "params" : "data"
-        )
+        .replace(/_API_DATA_/g, API_DATA_TYPE)
         .replace(/_API_HEADERS_/g, API_HEADER);
 
       // 写入新内容
@@ -192,12 +190,7 @@ class Builder {
         .pipe(replace("_API_PATH_", API_URL))
         .pipe(replace("_API_METHOD_", API_METHOD))
         .pipe(replace("_API_PROJECT_", this.apiName))
-        .pipe(
-          replace(
-            "_API_DATA_",
-            API_METHOD.toUpperCase === "GET" ? "params" : "data"
-          )
-        )
+        .pipe(replace("_API_DATA_", API_DATA_TYPE))
         .pipe(replace("_API_HEADERS_", API_HEADER))
         .pipe(gulp.dest(apiTargetPath))
         .on("end", () => {
@@ -242,7 +235,7 @@ class Builder {
   checkIsCreate(pathArr, path, method) {
     return pathArr.includes(path + "_" + method);
   }
-  
+
   /**
    * 解析参数成注释字符串
    * @param {string} method 方法名

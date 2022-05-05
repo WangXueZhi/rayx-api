@@ -16,8 +16,6 @@ commander
   .option("--server", "服务端代码")
   .option("--client", "客户端代码")
   .action(function (cmd) {
-
-    console.log(cmd)
     // api源文件名
     const apiName = cmd.source || cmd.s || "api";
     // api源文件路径
