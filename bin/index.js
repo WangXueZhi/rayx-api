@@ -16,6 +16,8 @@ commander
   .option("--server", "服务端代码")
   .option("--client", "客户端代码")
   .action(function (cmd) {
+
+    console.log(cmd)
     // api源文件名
     const apiName = cmd.source || cmd.s || "api";
     // api源文件路径
@@ -25,11 +27,12 @@ commander
     if (fs.existsSync(apiJsonFilePath)) {
       const apiJson = require(apiJsonFilePath);
 
+
       apiBuilder(
         apiDirPath,
         apiName,
         apiJson,
-        [cmd.client, cmd.server].filter((env) => !!env)
+        [cmd.client && 'client', cmd.server && 'server'].filter((env) => !!env)
       );
     } else {
       console.error(chalk.red(`${apiJsonFilePath} 文件不存在`));

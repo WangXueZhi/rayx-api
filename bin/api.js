@@ -1,15 +1,9 @@
 const util = require("./util.js");
 const fs = require("fs");
 const path = require("path");
-const gulp = require("gulp");
-const replace = require("gulp-replace");
-const rename = require("gulp-rename");
-const prependFile = require("prepend-file");
-const ProgressBar = require("progress");
 const chalk = require("chalk");
-const slog = require("single-line-log").stdout;
-const ora = require("ora");
 const cwdPath = process.cwd();
+const Builder = require('./builder')
 
 /**
  * api模板路径
@@ -26,131 +20,14 @@ const __TPL_FILE_CONTENT__ = {
 };
 
 /**
- * js关键字
- */
-const __KEYWORDS__ = [
-  "abstract",
-  "arguments",
-  "boolean",
-  "break",
-  "byte",
-  "case",
-  "catch",
-  "char",
-  "class",
-  "const",
-  "continue",
-  "debugger",
-  "default",
-  "delete",
-  "do",
-  "double",
-  "else",
-  "enum",
-  "eval",
-  "export",
-  "extends",
-  "false",
-  "final",
-  "finally",
-  "float",
-  "for",
-  "function",
-  "goto",
-  "if",
-  "implements",
-  "import",
-  "in",
-  "instanceof",
-  "int",
-  "interface",
-  "let",
-  "long",
-  "native",
-  "new",
-  "null",
-  "package",
-  "private",
-  "protected",
-  "public",
-  "return",
-  "short",
-  "static",
-  "super",
-  "switch",
-  "synchronized",
-  "this",
-  "throw",
-  "throws",
-  "transient",
-  "true",
-  "try",
-  "typeof",
-  "var",
-  "void",
-  "volatile",
-  "while",
-  "with",
-  "yield",
-];
-
-/**
- * 文件前置代码枚举
- */
-const __REQUIRE_HEAD__ = {
-  web: "import fetch from '@/utils/fetch'\n",
-  wxa: "const network = getApp().globalData.network\n",
-};
-
-/**
  * 环境配置
  */
 const envConfigMap = {};
 
 /**
- * api类型
- */
-let apiType = "web";
-
-/**
- * 文件前置代码，一般是导入依赖
- */
-let _requireHead = __REQUIRE_HEAD__[apiType];
-
-/**
- * api列表索引
- */
-let apisIndex = 0;
-
-/**
  * api列表
  */
 let apisArr = [];
-
-/**
- * api数据
- */
-let apiDatas = [];
-
-/**
- * 已经生成完毕的api，做校验使用
- */
-let isCreatedApi = [];
-
-/**
- * 创建api文件的目标目录
- */
-let buildPath = "";
-
-/**
- * 进度条
- */
-let bar = "";
-
-/**
- * api包名称
- */
-let apiPackageName = "api";
 
 /**
  * swagger版本
@@ -164,16 +41,6 @@ let swaggerVersion = "";
 const clean = function (dir) {
   util.rmdirSync(dir);
   fs.mkdirSync(dir);
-};
-
-/**
- * 检查当前api是否已被生成
- * @param {*} pathArr 已生成的api数组
- * @param {*} path 接口路径
- * @param { String } method 接口方法
- */
-const checkIsCreate = function (pathArr, path, method) {
-  return pathArr.includes(path + "_" + method);
 };
 
 /**
@@ -251,170 +118,56 @@ const transformDataBySwaggerVersion = function (data) {
  * @param {Array} envTypes 生成代码环境类型 []
  */
 const builder = function (dir, apiName, data, envTypes) {
-  apiDatas = data; // 缓存到全局
-  buildPath = dir;
-  apiPackageName = apiName;
   swaggerVersion = data.swagger;
-  // apiType = isWxa ? 'wxa' : 'web'
 
   // 设置_requireHead
   if (fs.existsSync(`${cwdPath}/api.config.json`)) {
     const apiConfig = require(`${cwdPath}/api.config.json`);
+
     envTypes.forEach((env) => {
+      // 相关路径转成绝对路径
+      apiConfig[env].tplPath = apiConfig[env].tplPath
+        ? path.resolve(`${cwdPath}/${apiConfig[env].tplPath}`)
+        : "";
+      apiConfig[env].targetPath = apiConfig[env].targetPath
+        ? path.resolve(`${cwdPath}/${apiConfig[env].targetPath}`, apiName)
+        : "";
+
       if (apiConfig[env]) {
-        if (apiConfig[env].tplPath) {
-          console.log(chalk.red(`\n  环境 ${env} 缺少 tplPath 配置`));
-        } else if (apiConfig[env].tplPath) {
+        if (!apiConfig[env].tplPath || !fs.existsSync(apiConfig[env].tplPath)) {
+          console.log(
+            chalk.red(`\n  环境 ${env} 缺少 tplPath 配置，或者文件不存在`)
+          );
+        } else if (!apiConfig[env].targetPath) {
           console.log(chalk.red(`\n  环境 ${env} 缺少 targetPath 配置`));
         } else {
           envConfigMap[env] = apiConfig[env];
+          envConfigMap[env].tplContent = fs.readFileSync(
+            envConfigMap[env].tplPath,
+            "utf-8"
+          );
+          envConfigMap[env].createdApi = [];
+          // envConfigMap[env].apiIndex = 0
           // 先清空目录
-          clean(`${cwdPath}/${envConfigMap[env]}/${apiName}`);
+          clean(envConfigMap[env].targetPath);
         }
       } else {
         console.log(chalk.red(`\n  环境 ${env} 配置不存在`));
       }
     });
-    // if (apiConfig.requireHead && apiConfig.requireHead[apiType]) {
-    //   _requireHead = apiConfig.requireHead[apiType]
-    // }
+  } else {
+    console.error(chalk.red("\n 配置文件api.config.json不存在"));
   }
 
   // 根据swagger版本转换数据
   apisArr = transformDataBySwaggerVersion(data);
-
   for (let env in envConfigMap) {
-    buildForEnv(envConfigMap[env])
-  }
-};
-
-const buildForEnv = function (envConfig) {
-  // 添加进度条
-  let len = apisArr.length;
-  bar = new ProgressBar("  working [:bar] :current/:total", {
-    complete: "=",
-    incomplete: " ",
-    width: 20,
-    total: len,
-  });
-  buildOne(apisArr[apisIndex], envConfig);
-};
-
-/**
- * 生成指定接口api
- * @param {Object} data
- */
-const buildOne = function (data, envConfig) {
-  // 处理url数据
-  // 待生成的接口
-  let urlArr = util.cleanEmptyInArray(data.path.split("/"));
-  // 文件生成目录
-  let apiTargetPath = `${cwdPath}/${envConfig.targetPath}/${apiName}`;
-
-  // 拼接出文件路径
-  for (let i = 0; i < urlArr.length - 2; i++) {
-    apiTargetPath += `${urlArr[i]}/`;
-  }
-
-  // 创建api方法名
-  let apiFunName = urlArr[urlArr.length - 1];
-  // 判断是否是rest风格接口
-  apiFunName =
-    apiFunName.indexOf("{") >= 0
-      ? apiFunName.slice(1, apiFunName.length - 1)
-      : apiFunName;
-
-  const API_METHOD = `'${data.method || "post"}'`;
-  const API_NAME =
-    (__KEYWORDS__.includes(apiFunName) ? `_${apiFunName}` : apiFunName) +
-    `_${data.method || "post"}`;
-  const api_describe = data.title;
-  const API_dESCRIBE = api_describe
-    .split("\n")
-    .map((item) => "// " + item.trim())
-    .join("\n");
-  const API_URL = `'${util.cleanEmptyInArray(data.path.split("/")).join("/")}'`;
-  const API_HEADER = data["Content-Type"]
-    ? `{ 'Content-Type': '${data["Content-Type"]}', ...(options && options.headers ? options.headers : {}) }`
-    : "options && options.headers ? options.headers : {}";
-
-  // 命名接口文件名称
-  let apiFileName = urlArr[urlArr.length - 2] || "other";
-  apiFileName =
-    apiFileName.indexOf("{") >= 0
-      ? apiFileName.slice(1, apiFileName.length - 1)
-      : apiFileName;
-  apiFileName += ".js";
-  // 目标文件路径
-  let targetApiFilePath = `${apiTargetPath}${apiFileName}`;
-  // 模板文件路径
-  let tplApiFilePath = `${TPL_API_PATH}`;
-  if (fs.existsSync(targetApiFilePath)) {
-    // 检查是否已经存在该接口
-    if (checkIsCreate(isCreatedApi, API_URL, API_METHOD)) {
-      console.log(chalk.red(`\n  ${API_URL}已存在...继续创建下一个api`));
-      bar.tick(1);
-      buildNext();
-      return;
-    }
-
-    // 替换模板内容
-    let newTplFileContent = fs
-      .readFileSync(__TPL_FILE_CONTENT__[apiType], "utf-8")
-      .replace(/__API_ANNOTATION__/g, API_dESCRIBE)
-      .replace(/_API_NAME_/g, API_NAME)
-      .replace(/_API_PATH_/g, API_URL)
-      .replace(/_API_METHOD_/g, API_METHOD)
-      .replace(/_API_HEADERS_/g, API_HEADER);
-
-    // 写入新内容
-    try {
-      fs.appendFileSync(targetApiFilePath, `\n${newTplFileContent}`, "utf8");
-      isCreatedApi.push(API_URL + "_" + API_METHOD);
-      bar.tick(1);
-    } catch (error) {
-      console.error(chalk.red(`api ${API_NAME} 创建失败，原因：${error}`));
-      return;
-    }
-
-    buildNext();
-  } else {
-    // 如果目标文件不存在， 创建目标文件
-    gulp
-      .src(__TPL_FILE_CONTENT__[apiType])
-      .pipe(rename(apiFileName))
-      .pipe(replace("__API_ANNOTATION__", API_dESCRIBE))
-      .pipe(replace("_API_NAME_", API_NAME))
-      .pipe(replace("_API_PATH_", API_URL))
-      .pipe(replace("_API_METHOD_", API_METHOD))
-      .pipe(replace("_API_HEADERS_", API_HEADER))
-      .pipe(gulp.dest(apiTargetPath))
-      .on("end", () => {
-        isCreatedApi.push(API_URL + "_" + API_METHOD);
-        prependFile(targetApiFilePath, _requireHead, function (err) {
-          if (err) {
-            // Error
-          }
-          // Success
-          bar.tick(1);
-          buildNext();
-        });
-      });
-  }
-};
-
-/**
- * 构建下一个api
- */
-const buildNext = function () {
-  if (bar.complete) {
-    let cmdText = chalk.green(`  ${apiPackageName}生成完毕`);
-    slog(cmdText);
-    return;
-  }
-  apisIndex++;
-  if (apisArr[apisIndex]) {
-    buildOne(apisArr[apisIndex]);
+    new Builder({
+      config: envConfigMap[env], 
+      data: apisArr,
+      apiName: apiName,
+      type: env
+    }).startBuild()
   }
 };
 
