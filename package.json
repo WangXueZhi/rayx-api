@@ -1,11 +1,11 @@
 {
-  "name": "@bm/api",
+  "name": "rayx-api",
   "version": "1.1.0",
   "description": "以swagger导出的json文件作为数据源，自动化生成接口调用代码",
   "main": "index.js",
   "author": "Dave",
   "bin": {
-    "bm-api": "./bin/index.js"
+    "rayx-api": "./bin/index.js"
   },
   "scripts": {
     "cz": "cz",
@@ -43,10 +43,5 @@
     }
   },
   "deprecated": false,
-  "homepage": "https://gitlab.bitmartpro.com/exchange/web-frontend/cli-api/-/blob/master/README.md",
-  "license": "ISC",
-  "repository": {
-    "type": "git",
-    "url": "git@gitlab.bitmartpro.com:exchange/web-frontend/cli-api.git"
-  }
+  "license": "ISC"
 }

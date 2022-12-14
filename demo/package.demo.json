@@ -1,0 +1,7 @@
+{
+    "scripts": {
+        "api:build": "rayx-api --client --server --mock",
+        "api": "node update-api-server.js TYPE=build",
+        "api:update": "node update-api-server.js"
+    }
+}

@@ -1,0 +1,32 @@
+{
+	"server": {
+		"flatLevel": true,
+		"tplPath": "/tpl/server.js",
+		"targetPath": "api-server",
+		"exclude": [
+			"/admin/"
+		],
+		"layoutPath": "/tpl/layout.js"
+	},
+	"client": {
+		"annotationParam": true,
+		"tplPath": "/tpl/client.js",
+		"targetPath": "api",
+		"exclude": [
+			"/admin/"
+		],
+		"requireHead": "import { axiosClient } from '~/common/js/axios'\n"
+	},
+	"mock": {
+		"annotationParam": true,
+		"tplPath": "/tpl/mock.js",
+		"targetPath": "api-mock",
+		"exclude": [
+			"/admin/"
+		]
+	},
+	"projectIdMap":{
+		"nft-market": 72,
+		"mission": 109
+	}
+}

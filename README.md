@@ -1,22 +1,16 @@
-# bm-api
+# rayx-api
 
-以 swagger 导出的 json 文件作为数据源，自动化生成接口调用代码，支持 swagger2 和 swagger3 的数据源
+以 swagger 导出的 json 文件作为数据源，自动化生成接口调用代码，支持 swagger2, swagger3, yapi 的数据源, 甚至可以利用yapi的接口自动拉取数据源
 
 ### 安装
 
-.npmrc 中添加，指定@bm 命名空间下的依赖从私有 npm 中拉取
-
 ```
-@bm:registry=http://npm.bitmartpro.com/
-```
-
-```
-npm install @bm/api -g
+npm install rayx-api -g
 ```
 
 ### 使用
 
-1. 基础命令：bm-api --server --client --source=[资源路径]
+1. 基础命令：rayx-api --server --client --source=[资源路径]
 2. --source=[资源路径]：json 文件源名称，默认"api"
 3. --s=[资源路径]：--source
 4. --force：当已存在项目接口目录，程序会被中断，需要强制覆盖
@@ -124,7 +118,7 @@ app._API_METHOD_LOWER_('/api/_API_PROJECT_/_API_PATH_', _API_NAME_)
 命令
 
 ```
-bm-api --server --client --sourve=nft-market
+rayx-api --server --client --sourve=nft-market
 ```
 
 生成
