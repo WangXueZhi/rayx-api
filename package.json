@@ -1,14 +1,16 @@
 {
-  "name": "rayx-api",
-  "version": "2.0.3",
+  "name": "@bm/api",
+  "version": "1.1.0",
   "description": "以swagger导出的json文件作为数据源，自动化生成接口调用代码",
   "main": "index.js",
-  "author": "wangxuezhi",
+  "author": "Dave",
   "bin": {
-    "rayx-api": "./bin/index.js"
+    "bm-api": "./bin/index.js"
   },
-  "bugs": {
-    "url": "https://github.com/WangXueZhi/rayx-api/issues"
+  "scripts": {
+    "cz": "cz",
+    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
+    "publish": "npm publish && conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md"
   },
   "bundleDependencies": false,
   "dependencies": {
@@ -23,16 +25,28 @@
     "progress": "^2.0.3",
     "prompts": "^2.3.1",
     "shelljs": "^0.8.3",
-    "single-line-log": "^1.1.2"
+    "single-line-log": "^1.1.2",
+    "commitizen": "^4.2.4"
+  },
+  "peerDependencies": {
+    "@types/webpack-env": "^1.17.0"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "echo \"git commit trigger husky pre-commit hook\"",
+      "commit-msg": "commitlint -e $HUSKY_GIT_PARAMS"
+    }
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
   },
   "deprecated": false,
-  "homepage": "https://github.com/WangXueZhi/rayx-api#readme",
+  "homepage": "https://gitlab.bitmartpro.com/exchange/web-frontend/cli-api/-/blob/master/README.md",
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/WangXueZhi/rayx-api.git"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "url": "git@gitlab.bitmartpro.com:exchange/web-frontend/cli-api.git"
   }
 }

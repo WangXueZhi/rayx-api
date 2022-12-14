@@ -1,4 +1,21 @@
 .DS_Store
-Thumbs.db
-*.log
+# dependencies
 node_modules
+
+# logs
+npm-debug.log
+
+# Nuxt build
+.nuxt
+
+# Nuxt generate
+dist
+
+.vscode
+.idea
+
+.gitlab-ci.yml
+
+i18n-export.zip
+
+yarn.lock

@@ -76,21 +76,50 @@ const __KEYWORDS__ = [
 
 class Builder {
   constructor(options) {
-    this.config = options.config;
-    this.apisArr = options.data;
-    this.apiName = options.apiName;
-    this.type = options.type;
-    this.bar = new ProgressBar(`${options.type} [:bar] :current/:total`, {
+    const { config, data, apiName, type, root, ignoreApiNameForUrl } = options;
+    this.config = config;
+    this.apisArr = data;
+    this.apiName = apiName;
+    this.type = type;
+    this.root = root;
+    this.hasLayout = config.layoutPath && config.layoutContent;
+    this.fileType = config.fileType || 'js'
+    this.ignoreApiNameForUrl = config?.ignoreApiNameForUrlList?.includes(root) || !!ignoreApiNameForUrl
+  }
+  
+  usedFnName = [];
+  apiIndex = 0;
+
+  startBuild() {
+    // 先过滤好数据
+    this.apisArr = this.apisArr.filter((api) => {
+      if (this.config.exclude && Array.isArray(this.config.exclude)) {
+        for (let i = 0; i < this.config.exclude.length; i++) {
+          const path = this.config.exclude[i];
+          if (api.path.startsWith(path)) {
+            return false;
+          }
+        }
+      }
+      if (this.config.include && Array.isArray(this.config.include)) {
+        for (let i = 0; i < this.config.include.length; i++) {
+          const path = this.config.include[i];
+          if(api.path.startsWith(path)){
+            return true
+          }
+          if(i === this.config.include.length - 1){
+            return false
+          }
+        }
+      }
+      return true;
+    });
+    this.bar = new ProgressBar(`${this.type} [:bar] :current/:total`, {
       complete: "=",
       incomplete: " ",
       width: 20,
       total: this.apisArr.length,
     });
-  }
-
-  apiIndex = 0;
-
-  startBuild() {
     this.buildOne(this.apisArr[this.apiIndex]);
   }
   /**
@@ -105,9 +134,11 @@ class Builder {
     // 文件生成目录
     let apiTargetPath = this.config.targetPath;
 
-    // 拼接出文件路径
-    for (let i = 0; i < urlArr.length - 2; i++) {
-      apiTargetPath += `/${urlArr[i]}`;
+    if (!this.config.flatLevel) {
+      // 拼接出文件路径
+      for (let i = 0; i < urlArr.length - 2; i++) {
+        apiTargetPath += `/${urlArr[i]}`;
+      }
     }
 
     // 创建api方法名
@@ -119,21 +150,25 @@ class Builder {
         ? apiFunName.slice(1, apiFunName.length - 1)
         : apiFunName;
 
+    // 方法名转大驼峰
+    apiFunName = util.kebabCaseToSmallCamelCase(apiFunName);
+
     const API_METHOD = `${data.method || "post"}`;
-    const API_DATA_TYPE = API_METHOD.toUpperCase() === "GET" ? "params" : "data";
-    const API_NAME =
-      (__KEYWORDS__.includes(apiFunName) ? `_${apiFunName}` : apiFunName) +
-      `_${data.method || "post"}`;
+    const API_DATA_TYPE =
+      API_METHOD.toUpperCase() === "GET" ? "params" : "data";
+    const API_NAME = this.fixName(apiFunName);
+
+    // (this.config.fnNameWithMethod ? `_${data.method || "post"}` : "");
     const api_describe = data.title;
     const API_dESCRIBE = api_describe
       .split("\n")
       .map((item) => item.trim())
       .join("\n");
     const API_URL = `${util.cleanEmptyInArray(data.path.split("/")).join("/")}`;
-    // const API_HEADER = data["Content-Type"]
-    //   ? `{ 'Content-Type': '${data["Content-Type"]}', ...(options && options.headers ? options.headers : {}) }`
-    //   : "options && options.headers ? options.headers : {}";
-    const API_HEADER = "options && options.headers ? options.headers : {}";
+    const API_HEADER = data["Content-Type"]
+      ? `{ 'Content-Type': '${data["Content-Type"]}', ...(options && options.headers ? options.headers : {}) }`
+      : "options && options.headers ? options.headers : {}";
+    // const API_HEADER = "options && options.headers ? options.headers : {}";
 
     // 命名接口文件名称
     let apiFileName = urlArr[urlArr.length - 2] || "other";
@@ -141,14 +176,38 @@ class Builder {
       apiFileName.indexOf("{") >= 0
         ? apiFileName.slice(1, apiFileName.length - 1)
         : apiFileName;
-    apiFileName += ".js";
+    apiFileName += `.${this.fileType}`;
 
     // 处理方法注释
     const paramString = this.parseParamToAnnotation(API_METHOD, data);
     const AnnotationString = `/**\n* ${API_dESCRIBE}\n${paramString}*/`;
 
     // 目标文件路径
-    let targetApiFilePath = `${apiTargetPath}/${apiFileName}`;
+    let targetApiFilePath = `${apiTargetPath}/${
+      this.config.flatLevel ? `${this.apiName}.${this.fileType}` : apiFileName
+    }`;
+
+    // mock数据
+    const mockData = `return ${data.res_body}`
+
+    // 替换模板内容
+    let newTplFileContent = this.config.tplContent
+      .replace(/_API_ANNOTATION_/g, AnnotationString)
+      .replace(/_API_NAME_/g, API_NAME)
+      .replace(/_API_PATH_/g, API_URL)
+      .replace(/_API_METHOD_LOWER_/g, API_METHOD.toLowerCase())
+      .replace(/_API_METHOD_UPPER_/g, API_METHOD.toUpperCase())
+      // .replace(/_API_PROJECT_/g, this.root)
+      .replace(/_API_DATA_/g, API_DATA_TYPE)
+      .replace(/_API_HEADERS_/g, API_HEADER)
+      .replace(/_API_MOCK_DATA_/g, mockData);
+    
+    if(this.root && !this.ignoreApiNameForUrl){
+      newTplFileContent = newTplFileContent.replace(/_API_PROJECT_/g, this.root)
+    } else {
+      newTplFileContent = newTplFileContent.replace(/\/_API_PROJECT_\//g, '/')
+      newTplFileContent = newTplFileContent.replace(/_API_PROJECT_/g, '')
+    }
 
     if (fs.existsSync(targetApiFilePath)) {
       // 检查是否已经存在该接口
@@ -159,20 +218,24 @@ class Builder {
         return;
       }
 
-      // 替换模板内容
-      let newTplFileContent = this.config.tplContent
-        .replace(/__API_ANNOTATION__/g, AnnotationString)
-        .replace(/_API_NAME_/g, API_NAME)
-        .replace(/_API_PATH_/g, API_URL)
-        .replace(/_API_METHOD_/g, API_METHOD)
-        .replace(/_API_PROJECT_/g, this.apiName)
-        .replace(/_API_DATA_/g, API_DATA_TYPE)
-        .replace(/_API_HEADERS_/g, API_HEADER);
-
       // 写入新内容
       try {
-        fs.appendFileSync(targetApiFilePath, `\n${newTplFileContent}`, "utf8");
+        if (this.hasLayout) {
+          util.replaceFileSync(
+            targetApiFilePath,
+            "// _API_CODE_",
+            newTplFileContent + "\n\n// _API_CODE_"
+          );
+        } else {
+          fs.appendFileSync(
+            targetApiFilePath,
+            `\n${newTplFileContent}`,
+            "utf8"
+          );
+        }
+
         this.config.createdApi.push(API_URL + "_" + API_METHOD);
+        this.usedFnName.push(API_NAME);
         this.bar.tick(1);
       } catch (error) {
         console.error(chalk.red(`api ${API_NAME} 创建失败，原因：${error}`));
@@ -182,19 +245,41 @@ class Builder {
       this.buildNext();
     } else {
       // 如果目标文件不存在， 创建目标文件
-      gulp
-        .src(this.config.tplPath)
-        .pipe(rename(apiFileName))
-        .pipe(replace("__API_ANNOTATION__", AnnotationString))
-        .pipe(replace("_API_NAME_", API_NAME))
-        .pipe(replace("_API_PATH_", API_URL))
-        .pipe(replace("_API_METHOD_", API_METHOD))
-        .pipe(replace("_API_PROJECT_", this.apiName))
-        .pipe(replace("_API_DATA_", API_DATA_TYPE))
-        .pipe(replace("_API_HEADERS_", API_HEADER))
-        .pipe(gulp.dest(apiTargetPath))
-        .on("end", () => {
-          this.config.createdApi.push(API_URL + "_" + API_METHOD);
+      //
+      let gulpTask = gulp
+        .src(this.hasLayout ? this.config.layoutPath : this.config.tplPath)
+        .pipe(
+          rename(this.config.flatLevel ? `${this.apiName}.${this.fileType}` : apiFileName)
+        );
+
+      if (!this.hasLayout) {
+        gulpTask = gulpTask
+          .pipe(replace("_API_ANNOTATION_", AnnotationString))
+          .pipe(replace("_API_NAME_", API_NAME))
+          .pipe(replace("_API_PATH_", API_URL))
+          .pipe(replace("_API_METHOD_LOWER_", API_METHOD.toLowerCase()))
+          .pipe(replace("_API_METHOD_UPPER_", API_METHOD.toUpperCase()))
+          // .pipe(replace("_API_PROJECT_", this.root))
+          .pipe(replace("_API_DATA_", API_DATA_TYPE))
+          .pipe(replace("_API_HEADERS_", API_HEADER))
+          .pipe(replace("_API_MOCK_DATA_", mockData));
+
+        if(this.root && !this.ignoreApiNameForUrl){
+          gulpTask = gulpTask.pipe(replace("_API_PROJECT_", this.root))
+        } else {
+          gulpTask = gulpTask.pipe(replace("/_API_PROJECT_/", '/'))
+          gulpTask = gulpTask.pipe(replace("_API_PROJECT_", ''))
+        }
+      } else {
+        gulpTask = gulpTask.pipe(
+          replace("// _API_CODE_", newTplFileContent + "\n\n// _API_CODE_")
+        );
+      }
+
+      gulpTask.pipe(gulp.dest(apiTargetPath)).on("end", () => {
+        this.config.createdApi.push(API_URL + "_" + API_METHOD);
+        this.usedFnName.push(API_NAME);
+        if (!this.hasLayout) {
           prependFile(
             targetApiFilePath,
             this.config.requireHead || "",
@@ -207,7 +292,11 @@ class Builder {
               this.buildNext();
             }
           );
-        });
+        } else {
+          this.bar.tick(1);
+          this.buildNext();
+        }
+      });
     }
   }
 
@@ -242,9 +331,13 @@ class Builder {
    * @param {object} data 接口数据
    */
   parseParamToAnnotation(method, data) {
+    if (!this.config.annotationParam) {
+      return "";
+    }
+
     let paramList = [];
     let paramString = "";
-    if (method.toUpperCase === "GET") {
+    if (method.toUpperCase() === "GET") {
       paramList = data.req_query;
     } else {
       paramList = data.req_body_form;
@@ -256,6 +349,16 @@ class Builder {
       paramString += `* @property {${param.type}} options.data.${param.name} ${param.desc}\n`;
     });
     return paramString;
+  }
+
+  fixName(name) {
+    if (
+      __KEYWORDS__.includes(name) ||
+      (this.config.flatLevel && this.usedFnName.includes(name))
+    ) {
+      return this.fixName(`_${name}`);
+    }
+    return name;
   }
 }
 

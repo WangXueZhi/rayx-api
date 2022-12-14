@@ -3,21 +3,8 @@ const fs = require("fs");
 const path = require("path");
 const chalk = require("chalk");
 const cwdPath = process.cwd();
-const Builder = require('./builder')
-
-/**
- * api模板路径
- */
-const TPL_API_PATH = path.resolve(__dirname, "../tpl/api.js");
-const TPL_WXA_PATH = path.resolve(__dirname, "../tpl/wxa.js");
-
-/**
- * 解析模板内容
- */
-const __TPL_FILE_CONTENT__ = {
-  web: TPL_API_PATH,
-  wxa: TPL_WXA_PATH,
-};
+const Builder = require("./builder");
+const gulp = require("gulp");
 
 /**
  * 环境配置
@@ -41,6 +28,16 @@ let swaggerVersion = "";
 const clean = function (dir) {
   util.rmdirSync(dir);
   fs.mkdirSync(dir);
+};
+
+/**
+ * 删除文件
+ * @param { String } dir 目录路径
+ */
+const rmFile = function (url) {
+  if (fs.existsSync(url)) {
+    fs.unlinkSync(url);
+  }
 };
 
 /**
@@ -112,62 +109,115 @@ const transformDataBySwaggerVersion = function (data) {
 
 /**
  * 构建api
- * @param {String} dir 创建目录路径 /src/api/
- * @param {String} apiName api源文件名 api
  * @param {Object} data api数据 json
+ * options
+ * @param {String} root 接口路径根目录
+ * @param {String} apiName api源文件名 api
  * @param {Array} envTypes 生成代码环境类型 []
+ * @param {Boolean} forceCover 强制覆盖
+ * @param {Boolean} ignoreApiNameForUrl 不生成url的api名称
  */
-const builder = function (dir, apiName, data, envTypes) {
+const builder = function (data, options) {
   swaggerVersion = data.swagger;
 
-  // 设置_requireHead
-  if (fs.existsSync(`${cwdPath}/api.config.json`)) {
-    const apiConfig = require(`${cwdPath}/api.config.json`);
+  const root = options.root
+  const apiName = options.apiName || 'api'
+  const envTypes = options.envTypes || []
+  const forceCover = !!options.forceCover
+  const ignoreApiNameForUrl = !!options.ignoreApiNameForUrl
 
-    envTypes.forEach((env) => {
-      // 相关路径转成绝对路径
-      apiConfig[env].tplPath = apiConfig[env].tplPath
-        ? path.resolve(`${cwdPath}/${apiConfig[env].tplPath}`)
-        : "";
-      apiConfig[env].targetPath = apiConfig[env].targetPath
-        ? path.resolve(`${cwdPath}/${apiConfig[env].targetPath}`, apiName)
-        : "";
-
-      if (apiConfig[env]) {
-        if (!apiConfig[env].tplPath || !fs.existsSync(apiConfig[env].tplPath)) {
-          console.log(
-            chalk.red(`\n  环境 ${env} 缺少 tplPath 配置，或者文件不存在`)
-          );
-        } else if (!apiConfig[env].targetPath) {
-          console.log(chalk.red(`\n  环境 ${env} 缺少 targetPath 配置`));
-        } else {
-          envConfigMap[env] = apiConfig[env];
-          envConfigMap[env].tplContent = fs.readFileSync(
-            envConfigMap[env].tplPath,
-            "utf-8"
-          );
-          envConfigMap[env].createdApi = [];
-          // envConfigMap[env].apiIndex = 0
-          // 先清空目录
-          clean(envConfigMap[env].targetPath);
-        }
-      } else {
-        console.log(chalk.red(`\n  环境 ${env} 配置不存在`));
-      }
-    });
-  } else {
+  if (!fs.existsSync(`${cwdPath}/api.config.json`)) {
     console.error(chalk.red("\n 配置文件api.config.json不存在"));
+    return;
+  }
+
+  const defaultConfig = {
+    fileType: "js",
+    flatLevel: false
+  };
+
+  const apiConfig = require(`${cwdPath}/api.config.json`);  
+
+  for (let i = 0; i < envTypes.length; i++) {
+    const env = envTypes[i];
+    let currentConfig = apiConfig[env];
+
+    if (!currentConfig) {
+      console.log(chalk.red(`\n环境 ${env} 配置不存在`));
+      continue;
+    }
+
+    currentConfig = { ...defaultConfig, ignoreApiNameForUrlList: apiConfig.ignoreApiNameForUrlList, ...currentConfig };
+
+    // 相关路径转成绝对路径
+    currentConfig.tplPath = currentConfig.tplPath
+      ? path.resolve(`${cwdPath}/${currentConfig.tplPath}`)
+      : "";
+    currentConfig.targetPath = currentConfig.targetPath
+      ? path.resolve(
+          `${cwdPath}/${currentConfig.targetPath}`,
+          !currentConfig.flatLevel ? apiName : ""
+        )
+      : "";
+    currentConfig.layoutPath = currentConfig.layoutPath
+      ? path.resolve(`${cwdPath}/${currentConfig.layoutPath}`)
+      : "";
+    currentConfig.fnNameWithMethod =
+      currentConfig.fnNameWithMethod || apiConfig.fnNameWithMethod || false;
+
+    if (!currentConfig.tplPath || !fs.existsSync(currentConfig.tplPath)) {
+      console.log(chalk.red(`\n环境 ${env} 缺少 tplPath 配置，或者文件不存在`));
+    } else if (!currentConfig.targetPath) {
+      console.log(chalk.red(`\n环境 ${env} 缺少 targetPath 配置`));
+    } else {
+      envConfigMap[env] = currentConfig;
+      envConfigMap[env].tplContent = fs.readFileSync(
+        envConfigMap[env].tplPath,
+        "utf-8"
+      );
+      envConfigMap[env].layoutContent = envConfigMap[env].layoutPath
+        ? fs.readFileSync(envConfigMap[env].layoutPath, "utf-8")
+        : "";
+      envConfigMap[env].createdApi = [];
+      // envConfigMap[env].apiIndex = 0
+      // 先清空目录
+      const targetPath = currentConfig.flatLevel
+        ? `${envConfigMap[env].targetPath}/${apiName}.${currentConfig.fileType}`
+        : envConfigMap[env].targetPath;
+      if (
+        ((currentConfig.flatLevel && fs.existsSync(targetPath)) ||
+          (util.dirExists(targetPath) && !util.isDirEmpty(targetPath))) &&
+        !forceCover
+      ) {
+        console.log(
+          chalk.red(
+            `目录已存在 -> ${envConfigMap[env].targetPath}，可使用 --force 或者 --f 进行强制删除并重新创建`
+          )
+        );
+        return;
+      }
+      if (currentConfig.flatLevel) {
+        rmFile(targetPath);
+      } else {
+        clean(targetPath);
+        gulp
+          .src(path.resolve(__dirname, `../tpl/index.${currentConfig.fileType}`))
+          .pipe(gulp.dest(targetPath));
+      }
+    }
   }
 
   // 根据swagger版本转换数据
   apisArr = transformDataBySwaggerVersion(data);
   for (let env in envConfigMap) {
     new Builder({
-      config: envConfigMap[env], 
+      config: envConfigMap[env],
       data: apisArr,
       apiName: apiName,
-      type: env
-    }).startBuild()
+      type: env,
+      root,
+      ignoreApiNameForUrl
+    }).startBuild();
   }
 };
 
